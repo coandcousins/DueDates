@@ -6493,7 +6493,7 @@
                                     <span class="tx-card-name">${escapeHtml(t.cardName || 'Unknown card')}</span>
                                     <span aria-hidden="true">-</span>
                                     <span class="tx-type-label">${escapeHtml(t.type)}</span>
-                                </span>
+                                </span> 
                             -->
                             </td>
                             <td class="tx-td right">
