@@ -253,7 +253,12 @@
                 <div class="saved-cards-header flex items-start justify-between gap-3 border-b border-[#1d2230]">
                     <div class="w-full">
                         <div class="saved-cards-title-row flex items-center justify-between gap-3">
-                            <h2 class="saved-cards-title text-[15px] font-semibold text-white">Saved cards</h2>
+                            <div class="saved-cards-title-group">
+                                <button type="button" class="saved-cards-back" onclick="setActiveTab('dashboard')" aria-label="Back to home" title="Back to home">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>
+                                </button>
+                                <h2 class="saved-cards-title text-[15px] font-semibold text-white">Accounts</h2>
+                            </div>
                             <div class="saved-cards-header-actions flex items-center gap-3">
                             <!--
                             <button id="saved-cards-visibility-toggle" type="button" role="switch" aria-checked="true" aria-label="Hide saved cards" title="Hide saved cards" onclick="toggleSavedCardsVisibility()" class="saved-cards-toggle" aria-controls="cards-list mobile-cards-gallery" aria-expanded="true">
@@ -274,14 +279,16 @@
                     <div id="total-outstanding" class="text-right"></div>
                     </div>
                 </div>
+                <div class="saved-cards-content">
                 <div id="disabled-toggle-row" class="flex justify-end pt-3 pb-1"></div>
-                <div id="saved-card-type-filter" class="saved-card-type-filter" role="group" aria-label="Filter saved cards">
+                <div id="saved-card-type-filter" class="saved-card-type-filter" role="group" aria-label="Filter accounts">
                     <button type="button" data-card-type="all" aria-pressed="true" onclick="setSavedCardTypeFilter('all')">All</button>
-                    <button type="button" data-card-type="credit" aria-pressed="false" onclick="setSavedCardTypeFilter('credit')">Credit</button>
                     <button type="button" data-card-type="debit" aria-pressed="false" onclick="setSavedCardTypeFilter('debit')">Debit</button>
+                    <button type="button" data-card-type="credit" aria-pressed="false" onclick="setSavedCardTypeFilter('credit')">Credit</button>
                 </div>
                 <div id="mobile-cards-gallery" class="mobile-cards-gallery hidden"></div>
                 <div id="cards-list" style="padding-top: 8px;;" class="grid grid-cols-1 sm:grid-cols-2  max-[1499px]:col-span-1 min-[1500px]:grid-cols-4 gap-4"></div>
+                </div>
             </section>
 
             <!-- ACTIVE INSTALLMENTS (EMI) -->
@@ -609,7 +616,22 @@
 
                 <!-- History Table -->
                 <div id="tab-panel-transactions" class="tab-panel space-y-6" role="tabpanel" aria-labelledby="tab-transactions" data-tab-panel="transactions" hidden>
-                 <section class="panel">
+                <div class="activity-screen-header saved-cards-header flex items-start justify-between gap-3 border-b border-[#1d2230]">
+                    <div class="w-full">
+                        <div class="saved-cards-title-row flex items-center justify-between gap-3">
+                            <div class="saved-cards-title-group">
+                                <button type="button" class="saved-cards-back" onclick="setActiveTab('dashboard')" aria-label="Back to home" title="Back to home">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>
+                                </button>
+                                <h2 class="saved-cards-title text-[15px] font-semibold text-white">Activity</h2>
+                            </div>
+                            
+                        </div>
+                        <!-- <p id="tx-count" class="text-xs text-slate-500 mt-1">0 entries</p> -->
+                        <div id="activity-trend-chart" class="activity-trend-chart"></div>
+                    </div>
+                </div>
+                 <section class="panel overview-body">
                 <div id="history-section" class="scroll-mt-20 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm overflow-hidden">
                     <div class="history-period-control">
                         <div class="history-period-tabs" role="group" aria-label="Filter activity by date">
@@ -638,10 +660,7 @@
                         <div class="history-heading-row">
                             <div>
                                 <div class="flex items-center gap-3 flex-wrap">
-                                    <h3 class="th-title"><span class="text-emerald-400">
                                         <!--<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/></svg>-->
-                                    </span>Activity</h3>
-                                    <span id="tx-count" class="th-count">0 entries</span>
                                 </div>
                             </div>
                         </div>
@@ -765,26 +784,44 @@
             </div>
         </main>
         <nav id="mobile-tab-nav" class="mobile-tab-nav" aria-label="Main navigation">
-            <div id="mobile-tab-list" class="mobile-tab-list" role="tablist" aria-label="Sections">
+            <button id="mobile-tab-prev" type="button" class="mobile-tab-arrow mobile-tab-prev" aria-label="Previous navigation items">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>
+            </button>
+            <div id="mobile-tab-list" class="mobile-tab-list">
+                <div id="mobile-tab-track" class="mobile-tab-track" role="tablist" aria-label="Sections">
                 <button id="tab-dashboard" type="button" role="tab" aria-label="Home" aria-selected="true" aria-controls="tab-panel-dashboard" data-tab-target="dashboard" class="mobile-tab is-active">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V10Z"/></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10.8 9-7.3 9 7.3"/><path d="M5 9.5V20h14V9.5"/><path d="M9.5 20v-6h5v6"/></svg>
+                    <span>Home</span>
                 </button>
                 <button id="tab-cards" type="button" role="tab" aria-label="Cards" aria-selected="false" aria-controls="tab-panel-cards" data-tab-target="cards" class="mobile-tab">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 11h18"/><path d="M7 15h3"/></svg>
+                    <span>Accounts</span>
                 </button>
-                <button id="tab-analytics" type="button" role="tab" aria-label="Analytics" aria-selected="false" aria-controls="tab-panel-analytics" data-tab-target="analytics" class="mobile-tab">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 6-7"/></svg>
+                <button type="button" aria-label="Budget" onclick="ddBudget()" class="mobile-tab">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M11 2.5a9.5 9.5 0 1 0 9.5 9.5H11V2.5Z" fill="currentColor"/><path d="M13.5 2.5v7h8A9.5 9.5 0 0 0 13.5 2.5Z" fill="currentColor"/></svg>
+                    <span>Budget</span>
                 </button>
                 <button id="tab-transactions" type="button" role="tab" aria-label="Activity and transfers" aria-selected="false" aria-controls="tab-panel-transactions" data-tab-target="transactions" class="mobile-tab">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 3 4 4-4 4"/><path d="M4 7h16"/><path d="m8 21-4-4 4-4"/><path d="M20 17H4"/></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M6.5 13h2l2-5 3 9 2.2-6H18"/></svg>
+                    <span>Activity</span>
+                <button id="tab-analytics" type="button" role="tab" aria-label="Analytics" aria-selected="false" aria-controls="tab-panel-analytics" data-tab-target="analytics" class="mobile-tab">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.5 17v-5M12 17V7.5M16.5 17v-7"/><path d="M7.5 9.5h.01M12 6h.01M16.5 8h.01"/></svg>
+                    <span>Statistic</span>
                 </button>
-                <button id="tab-assistant" type="button" role="tab" aria-label="AI Assistant" aria-selected="false" aria-controls="tab-panel-assistant" data-tab-target="assistant" class="mobile-tab">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
+                <button type="button" aria-label="Insights" onclick="ddInsights()" class="mobile-tab">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V9M9 19V5M14 19v-7M19 19V3"/><path d="M2 19h20"/></svg>
+                    <span>Insights</span>
+                </button>
                 </button>
                 <button id="tab-profile" type="button" role="tab" aria-label="Settings" aria-selected="false" aria-controls="tab-panel-profile" data-tab-target="profile" class="mobile-tab">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-2.5V20a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H6v-2.5h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V5h2.5v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v2.5h-.2a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3-1.9l1.1-1.1-1.8-1.8-1.1.9a1.7 1.7 0 0 0-1.9-.3l-.4-1.5H13l-.4 1.5a1.7 1.7 0 0 0-1.9.3l-1.1-.9-1.8 1.8 1.1 1.1a1.7 1.7 0 0 0-.3 1.9l-1.5.4v2.5l1.5.4a1.7 1.7 0 0 0 .3 1.9l-1.1 1.1 1.8 1.8 1.1-.9a1.7 1.7 0 0 0 1.9.3l.4 1.5h2.5l.4-1.5a1.7 1.7 0 0 0 1.9-.3l1.1.9 1.8-1.8-1.1-1.1a1.7 1.7 0 0 0 .3-1.9l1.5-.4v-2.5Z"/></svg>
+                    <span>Settings</span>
                 </button>
+                </div>
             </div>
+            <button id="mobile-tab-next" type="button" class="mobile-tab-arrow mobile-tab-next" aria-label="Next navigation items">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+            </button>
         </nav>
     </div>
 

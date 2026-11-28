@@ -1087,10 +1087,6 @@
             m.dataset.card = String(id);
             m.setAttribute('role', 'menu');
             m.innerHTML = '<button type="button" role="menuitem" data-act="edit">✏️ Edit</button>'
-                + (isDebit(card)
-                    ? '<button type="button" role="menuitem" data-act="topup">💸 Add money</button>'
-                    : '<button type="button" role="menuitem" data-act="paid">✓ Mark paid</button>')
-                + '<button type="button" role="menuitem" data-act="toggle" class="' + (card.disabled ? 'ok' : 'warn') + '">' + (card.disabled ? '✅ Enable' : '⏸️ Disable') + '</button>'
                 + '<button type="button" role="menuitem" data-act="delete" class="danger">🗑️ Delete</button>';
             m.addEventListener('click', e => {
                 const b = e.target.closest('button[data-act]');
@@ -2945,6 +2941,42 @@
             document.getElementById('tx-form-subtitle').textContent = 'Transfer between your saved cards';
         }
 
+        function openCreditCardTransaction(cardId, type) {
+            const card = cards.find(item => String(item.id) === String(cardId));
+            if (!card) {
+                showToast('Could not find this card.', { tone: 'error' });
+                return;
+            }
+            if (isDebit(card)) {
+                showToast('Purchase and repayment actions are only available for credit cards.', { tone: 'error' });
+                return;
+            }
+            if (card.disabled) {
+                showToast('Enable this card before recording a transaction.', { tone: 'error' });
+                return;
+            }
+            if (type !== 'Purchase' && type !== 'Repaid') {
+                showToast('Choose a purchase or repayment action.', { tone: 'error' });
+                return;
+            }
+
+            openTxModal();
+            setTransactionEntryKind(type === 'Purchase' ? 'expense' : 'income');
+            document.getElementById('exp-card').value = String(card.id);
+            syncRepaidLabel();
+            const typeSelect = document.getElementById('exp-type');
+            typeSelect.value = type;
+            typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            document.getElementById('exp-desc').value = type === 'Purchase'
+                ? `Purchase on ${card.name}`
+                : `Repaid ${card.name}`;
+            document.getElementById('exp-form-title').textContent = type === 'Purchase' ? 'Add Purchase' : 'Record Repaid';
+            document.getElementById('tx-form-subtitle').textContent = type === 'Purchase'
+                ? 'Record a purchase on this card'
+                : 'Record a repayment to this card';
+            calculateDynamicCashback();
+        }
+
         function closeTxModal() {
             document.getElementById('tx-modal').classList.add('hidden');
             cancelEditTransaction();
@@ -4606,6 +4638,34 @@
             d.innerHTML = `<div class="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto p-5 sm:p-7"><div class="flex justify-between items-center mb-5"><h3 class="font-bold text-lg">${title}</h3><button type="button" onclick="document.getElementById('dd-modal').remove()" aria-label="Close dialog" class="grid h-9 w-9 place-items-center rounded-xl text-slate-400 transition hover:bg-white/10 hover:text-white">✕</button></div>${html}</div>`;
             document.body.appendChild(d);
         }
+        function ddBudget() {
+            const ym = localDateKey().slice(0, 7);
+            const budget = ddNum(ddLoad('dd-monthly-budget')[ym]);
+            const spent = ddSum(transactions.filter(t => (t.date || '').startsWith(ym) && txKind(t.type) === 'Purchase'), t => t.amount);
+            const remaining = budget - spent;
+            const content = `<div class="mb-5">
+                    <p class="text-[10px] font-semibold uppercase tracking-[.2em] text-indigo-500 dark:text-indigo-300">Monthly spending</p>
+                    <h4 class="mt-1 text-xl font-bold text-slate-900 dark:text-white">Budget</h4>
+                    <p class="mt-1 text-xs text-slate-500">Set a purchase budget for ${monthLabel(ym)}.</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <div class="rounded-xl border border-white/[.07] bg-white/[.025] p-4"><p class="text-[10px] uppercase tracking-wider text-slate-500">Budget</p><p class="mono mt-2 text-lg font-semibold text-slate-100">AED ${formatAED(budget)}</p></div>
+                    <div class="rounded-xl border border-white/[.07] bg-white/[.025] p-4"><p class="text-[10px] uppercase tracking-wider text-slate-500">Spent</p><p class="mono mt-2 text-lg font-semibold text-amber-300">AED ${formatAED(spent)}</p></div>
+                    <div class="col-span-2 rounded-xl border border-white/[.07] bg-white/[.025] p-4 sm:col-span-1"><p class="text-[10px] uppercase tracking-wider text-slate-500">${remaining >= 0 ? 'Remaining' : 'Over budget'}</p><p class="mono mt-2 text-lg font-semibold ${remaining >= 0 ? 'text-emerald-300' : 'text-rose-300'}">AED ${formatAED(Math.abs(remaining))}</p></div>
+                </div>
+                <form class="mt-5 flex flex-wrap items-end gap-3" onsubmit="event.preventDefault(); ddSaveBudget(this.elements.limit.value)">
+                    <label class="min-w-[220px] flex-1 text-xs font-semibold text-slate-500">Monthly budget (AED)<input name="limit" type="number" min="0" step="0.01" value="${budget || ''}" placeholder="Enter monthly budget" class="mt-2 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-100"></label>
+                    <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Save budget</button>
+                </form>`;
+            ddModal('Monthly Budget', content);
+        }
+        function ddSaveBudget(value) {
+            const ym = localDateKey().slice(0, 7);
+            const budgets = ddLoad('dd-monthly-budget');
+            budgets[ym] = Math.max(0, ddNum(value));
+            ddSave('dd-monthly-budget', budgets);
+            ddBudget();
+        }
         function ddRule(c) { return ddLoad('dd-card-rules')[c.id] || {}; }
         function ddCaps(r) {
             const caps = {};
@@ -5628,8 +5688,8 @@
         function mobileCardActionsHtml(c) {
             if (!c) return '';
             const disabled = !!c.disabled;
-            return `
-                <div class="mobile-card-actions" aria-label="Card actions">
+            const primaryActions = isDebit(c)
+                ? `
                     <button type="button" class="mobile-card-action" onclick="openCardTransfer('${c.id}', 'send')" aria-label="Send from ${escapeHtml(c.name)}" ${disabled ? 'disabled' : ''}>
                         <span class="mobile-card-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></span>
                         <span>Send</span>
@@ -5637,14 +5697,30 @@
                     <button type="button" class="mobile-card-action" onclick="openCardTransfer('${c.id}', 'receive')" aria-label="Receive to ${escapeHtml(c.name)}" ${disabled ? 'disabled' : ''}>
                         <span class="mobile-card-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7 17 17M7 17h10V7"/></svg></span>
                         <span>Received</span>
+                    </button>`
+                : `
+                    <button type="button" class="mobile-card-action" onclick="openCreditCardTransaction('${c.id}', 'Purchase')" aria-label="Purchase on ${escapeHtml(c.name)}" ${disabled ? 'disabled' : ''}>
+                        <span class="mobile-card-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h14l-2 10H9L7 7Z"/><path d="M7 7 6 4H3"/><circle cx="10" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></svg></span>
+                        <span>Purchase</span>
                     </button>
+                    <button type="button" class="mobile-card-action" onclick="openCreditCardTransaction('${c.id}', 'Repaid')" aria-label="Repaid on ${escapeHtml(c.name)}" ${disabled ? 'disabled' : ''}>
+                        <span class="mobile-card-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M5 20h14"/></svg></span>
+                        <span>Repaid</span>
+                    </button>`;
+            return `
+                <div class="mobile-card-actions" aria-label="Card actions for ${escapeHtml(c.name)}">
+                    ${primaryActions}
                     <button type="button" class="mobile-card-action" onclick="toggleCardDisabled('${c.id}')" aria-label="${disabled ? 'Enable' : 'Disable'} ${escapeHtml(c.name)}">
                         <span class="mobile-card-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${disabled ? '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.8-1.6"/>' : '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'}</svg></span>
                         <span>${disabled ? 'Enable' : 'Disable'}</span>
                     </button>
-                    <button type="button" class="mobile-card-action" onclick="toggleCardMenu('${c.id}', event, this)" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for ${escapeHtml(c.name)}">
-                        <span class="mobile-card-action-icon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg></span>
-                        <span>More</span>
+                    <button type="button" class="mobile-card-action" onclick="editCard('${c.id}')" aria-label="Edit ${escapeHtml(c.name)}">
+                        <span class="mobile-card-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 5 3 3"/><path d="M4 20h4l11-11a2.1 2.1 0 0 0-4-4L4 16v4Z"/></svg></span>
+                        <span>Edit</span>
+                    </button>
+                    <button type="button" class="mobile-card-action" onclick="deleteCard('${c.id}')" aria-label="Delete ${escapeHtml(c.name)}">
+                        <span class="mobile-card-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg></span>
+                        <span>Delete</span>
                     </button>
                 </div>`;
         }
@@ -5934,7 +6010,7 @@
             container.innerHTML = shownCards.length ? tilesOut : `<div class="col-span-full text-center py-6 px-4 text-sm text-slate-500 dark:text-slate-400">${emptyTypeMessage}</div>`;
             if (mobileGallery) {
                 mobileGallery.innerHTML = shownCards.length
-                    ? `<div class="mobile-card-track" role="list" aria-label="Saved cards">${mobileTiles.join('')}</div>${mobileCardActionsHtml(shownCards[0].card)}`
+                    ? `<div class="mobile-card-track" role="list" aria-label="Accounts">${mobileTiles.join('')}</div>${mobileCardActionsHtml(shownCards[0].card)}`
                     : `<div class="mobile-card-empty">${emptyTypeMessage}</div>`;
                 const track = mobileGallery.querySelector('.mobile-card-track');
                 if (track) {
@@ -6362,6 +6438,212 @@
             return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
         }
 
+        function renderActivityTrendChart(visibleTransactions) {
+            const chart = document.getElementById('activity-trend-chart');
+            if (!chart) return;
+
+            const parseDateKey = key => {
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return null;
+                const [year, month, day] = key.split('-').map(Number);
+                const date = new Date(0);
+                date.setHours(0, 0, 0, 0);
+                date.setFullYear(year, month - 1, day);
+                return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+                    ? date
+                    : null;
+            };
+            const validDates = visibleTransactions
+                .map(transaction => String(transaction.date || '').slice(0, 10))
+                .filter(key => parseDateKey(key))
+                .sort();
+            const todayDate = new Date();
+            const today = localDateKey();
+            let rangeStart = '';
+            let rangeEnd = '';
+
+            if (historyPeriod === 'all') {
+                rangeStart = validDates[0] || localDateKey(new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate() - 6));
+                const lastDate = validDates[validDates.length - 1] || today;
+                rangeEnd = lastDate > today ? lastDate : today;
+            } else if (historyPeriod === 'year') {
+                const year = historySelectedYear || today.slice(0, 4);
+                rangeStart = `${year}-01-01`;
+                rangeEnd = `${year}-12-31`;
+            } else if (historyPeriod === 'month') {
+                const month = historySelectedMonth || today.slice(0, 7);
+                const [year, monthNumber] = month.split('-').map(Number);
+                const lastDay = new Date(year, monthNumber, 0).getDate();
+                rangeStart = `${month}-01`;
+                rangeEnd = `${month}-${String(lastDay).padStart(2, '0')}`;
+            } else if (historyPeriod === 'custom' && historyCustomStart && historyCustomEnd &&
+                historyCustomStart <= historyCustomEnd) {
+                rangeStart = historyCustomStart;
+                rangeEnd = historyCustomEnd;
+            }
+
+            const startDate = parseDateKey(rangeStart);
+            const endDate = parseDateKey(rangeEnd);
+            if (!startDate || !endDate || startDate > endDate) {
+                chart.classList.add('is-empty');
+                const message = historyPeriod === 'custom'
+                    ? historyCustomStart && historyCustomEnd
+                        ? 'Start date must be on or before the end date.'
+                        : 'Choose both dates to view daily spending.'
+                    : 'No dates available to display.';
+                chart.innerHTML = `<svg viewBox="0 0 360 160" role="img" aria-label="${escapeHtml(message)}"><text class="activity-trend-empty" x="180" y="82">${escapeHtml(message)}</text></svg>`;
+                return;
+            }
+
+            const bins = [];
+            for (let date = startDate; localDateKey(date) <= rangeEnd; date = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)) {
+                const key = localDateKey(date);
+                bins.push({
+                    key,
+                    date,
+                    label: '',
+                    title: date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
+                    shortDate: date.toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: bins.length > 31 ? 'numeric' : undefined
+                    })
+                });
+            }
+
+            const dailyTotals = new Map();
+            const dailyCounts = new Map();
+            visibleTransactions.forEach(transaction => {
+                const date = String(transaction.date || '').slice(0, 10);
+                if (!historyPeriodMatches(transaction) || !isSpendKind(transaction.type) || !bins.length) return;
+                const amount = parseFloat(transaction.amount);
+                if (!Number.isFinite(amount)) return;
+                dailyTotals.set(date, (dailyTotals.get(date) || 0) + Math.abs(amount));
+                dailyCounts.set(date, (dailyCounts.get(date) || 0) + 1);
+            });
+
+            bins.forEach(bin => {
+                if (bins.length <= 31) bin.label = String(bin.date.getDate());
+                else if (bins.length <= 120) {
+                    bin.label = bin.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                } else {
+                    bin.label = bin.date.toLocaleDateString(undefined, {
+                        month: 'short',
+                        year: bins.length > 366 ? '2-digit' : undefined
+                    });
+                }
+            });
+
+            const amounts = bins.map(bin => dailyTotals.get(bin.key) || 0);
+            const counts = bins.map(bin => dailyCounts.get(bin.key) || 0);
+            let maximum = 0;
+            let selectedIndex = bins.length - 1;
+            amounts.forEach((amount, index) => {
+                if (amount > maximum) {
+                    maximum = amount;
+                    selectedIndex = index;
+                }
+            });
+            const totalAmount = amounts.reduce((sum, amount) => sum + amount, 0);
+            const totalCount = counts.reduce((sum, count) => sum + count, 0);
+            const hasActivity = totalCount > 0;
+            const rangeDescription = `${bins[0].title} through ${bins[bins.length - 1].title}`;
+            const ariaLabel = hasActivity
+                ? `Daily spending: ${totalCount} purchase or cash withdrawal transactions totaling AED ${formatAED(totalAmount)} from ${rangeDescription}. Use the arrow keys to select a day.`
+                : `No purchase or cash withdrawal spending from ${rangeDescription}. Use the arrow keys to select a day.`;
+            const xPositions = bins.map((bin, index) => bins.length === 1 ? 180 : 18 + index * 324 / (bins.length - 1));
+            const baseline = 118;
+            const points = bins.map((bin, index) => ({
+                x: xPositions[index],
+                y: maximum > 0
+                    ? baseline - (amounts[index] / maximum) * 90
+                    : baseline
+            }));
+            const linePath = points.reduce((path, point, index) => {
+                if (index === 0) return `M ${point.x} ${point.y}`;
+                const previous = points[index - 1];
+                const middleX = (previous.x + point.x) / 2;
+                return `${path} C ${middleX} ${previous.y}, ${middleX} ${point.y}, ${point.x} ${point.y}`;
+            }, '');
+            const areaPath = `${linePath} L ${xPositions[xPositions.length - 1]} ${baseline} L ${xPositions[0]} ${baseline} Z`;
+            const tickCount = Math.min(7, bins.length);
+            const tickIndexes = new Set();
+            for (let index = 0; index < tickCount; index++) {
+                tickIndexes.add(tickCount === 1 ? Math.floor((bins.length - 1) / 2) : Math.round(index * (bins.length - 1) / (tickCount - 1)));
+            }
+            chart.classList.toggle('is-empty', !hasActivity);
+            chart.innerHTML = `
+                <svg viewBox="0 0 360 160" preserveAspectRatio="none" role="slider" tabindex="0"
+                    aria-label="${escapeHtml(ariaLabel)}"
+                    aria-valuemin="1" aria-valuemax="${bins.length}" aria-valuenow="${selectedIndex + 1}">
+                    <defs>
+                        <linearGradient id="activity-trend-fill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#fff" stop-opacity=".24"></stop>
+                            <stop offset="100%" stop-color="#fff" stop-opacity="0"></stop>
+                        </linearGradient>
+                    </defs>
+                    <path class="activity-trend-area" d="${areaPath}"></path>
+                    <path class="activity-trend-line" d="${linePath}"></path>
+                    ${bins.map((bin, index) => tickIndexes.has(index) ? `<g>
+                        <title>${escapeHtml(bin.title)}: ${counts[index]} spending transactions, AED ${formatAED(amounts[index])}</title>
+                        <text class="activity-trend-label" data-index="${index}" x="${xPositions[index]}" y="149">${escapeHtml(bin.label)}</text>
+                    </g>` : '').join('')}
+                    <rect class="activity-trend-interaction" x="18" y="20" width="324" height="116"></rect>
+                    <g class="activity-trend-selection" aria-hidden="true"></g>
+                </svg>`;
+
+            const svg = chart.querySelector('svg');
+            const selection = svg.querySelector('.activity-trend-selection');
+            const selectDay = index => {
+                const nextIndex = Math.max(0, Math.min(bins.length - 1, index));
+                if (nextIndex === selectedIndex && selection.childElementCount) return;
+                selectedIndex = nextIndex;
+                const point = points[selectedIndex];
+                const bin = bins[selectedIndex];
+                const countLabel = counts[selectedIndex] === 1 ? 'transaction' : 'transactions';
+                const summary = `${bin.title}: ${counts[selectedIndex]} spending ${countLabel}, AED ${formatAED(amounts[selectedIndex])}`;
+                selection.innerHTML = `
+                    <line class="activity-trend-guide" x1="${point.x}" y1="${point.y}" x2="${point.x}" y2="${baseline}"></line>
+                    <circle class="activity-trend-point-halo" cx="${point.x}" cy="${point.y}" r="8"></circle>
+                    <circle class="activity-trend-point" cx="${point.x}" cy="${point.y}" r="5"></circle>
+                    <text class="activity-trend-summary" x="18" y="15">${escapeHtml(`${bin.shortDate} · AED ${formatAED(amounts[selectedIndex])}`)}</text>`;
+                svg.querySelectorAll('.activity-trend-label').forEach(label => {
+                    label.classList.toggle('is-selected', Number(label.dataset.index) === selectedIndex);
+                });
+                svg.setAttribute('aria-valuenow', String(selectedIndex + 1));
+                svg.setAttribute('aria-valuetext', summary);
+            };
+            const indexFromPointer = event => {
+                const rect = svg.getBoundingClientRect();
+                if (!rect.width) return;
+                const position = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+                const x = Math.max(18, Math.min(342, position * 360));
+                selectDay(Math.round((x - 18) / 324 * (bins.length - 1)));
+            };
+            svg.addEventListener('pointerdown', event => {
+                indexFromPointer(event);
+                svg.focus();
+            });
+            svg.addEventListener('pointermove', event => {
+                if (event.pointerType === 'mouse') indexFromPointer(event);
+            });
+            svg.addEventListener('keydown', event => {
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    selectDay(selectedIndex - 1);
+                } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    selectDay(selectedIndex + 1);
+                } else if (event.key === 'Home') {
+                    event.preventDefault();
+                    selectDay(0);
+                } else if (event.key === 'End') {
+                    event.preventDefault();
+                    selectDay(bins.length - 1);
+                }
+            });
+            selectDay(selectedIndex);
+        }
+
         function renderTransactionsAndMetrics() {
             const tbody = document.getElementById('tx-table-body');
             renderHistoryPeriodControls();
@@ -6371,6 +6653,7 @@
             const visibleTransactions = transactions.filter(t => !hiddenTxIds.has(t.id));
             const txCount = document.getElementById('tx-count');
             if (txCount) txCount.textContent = `${visibleTransactions.length} entries`;
+            renderActivityTrendChart(visibleTransactions);
 
             if (visibleTransactions.length === 0) {
                 if (tbody) tbody.innerHTML = `<tr><td colspan="${visibleColumnCount}" class="p-6 text-center text-xs text-slate-400 dark:text-slate-500">No transactions recorded yet.</td></tr>`;
@@ -6464,7 +6747,6 @@
                     const isNegative = isSpendKind(t.type) || t.type === TRANSFER_OUT_TYPE;
                     const amountClass = isPositive ? 'pos' : isNegative ? 'neg' : '';
                     const iconClass = isPositive ? 'positive' : isNegative ? 'negative' : '';
-                    const amountSign = isPositive ? '+' : isNegative ? '−' : '';
                     const description = String(t.desc || t.type || 'Transaction').trim();
                     const category = t.type || t.category || 'Transaction';
                     //const initial = Array.from(description).slice(0, 2).join('').toUpperCase();
@@ -6498,8 +6780,8 @@
                             </td>
                             <td class="tx-td right">
                                 <span class="tx-amount-stack">
-                                    <span class="tx-num tx-amt ${amountClass}">${amount ? amountSign + formatAED(amount) : '—'}</span>
-                                    ${cashback > 0 ? `<span class="tx-cashback-under">+${formatAED(cashback)}</span>` : ''}
+                                    <span class="tx-num tx-amt ${amountClass}">${amount ? formatAED(Math.abs(amount)) : '—'}</span>
+                                    ${cashback > 0 ? `<span class="tx-cashback-under">${formatAED(cashback)}</span>` : ''}
                                 </span>
                             </td>
                             <!--
@@ -6533,11 +6815,28 @@
                         const dateLabel = parsedDate && !Number.isNaN(parsedDate.getTime())
                             ? parsedDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
                             : 'UNDATED';
+                        const dateTotals = dateRows.reduce((totals, transaction) => {
+                            const amount = Math.abs(parseFloat(transaction.amount) || 0);
+                            const kind = txKind(transaction.type);
+                            if (isSpendKind(transaction.type) || transaction.type === TRANSFER_OUT_TYPE) totals.expense += amount;
+                            if (kind === 'Repaid' || kind === 'Cashback' || transaction.type === TRANSFER_IN_TYPE) totals.income += amount;
+                            return totals;
+                        }, { expense: 0, income: 0 });
                         rowsHtml.push(`
                             <tr class="tx-date-group">
                                 <td colspan="${visibleColumnCount}">
                                     <div class="tx-date-group-content">
-                                        <span>${escapeHtml(dateLabel)}</span>
+                                        <span class="tx-date-group-label">${escapeHtml(dateLabel)}</span>
+                                        <div class="tx-date-group-totals" role="group" aria-label="Daily totals">
+                                            <span class="tx-date-group-total tx-date-group-total-expense">
+                                                <!--<span class="tx-date-group-total-label">Expense</span>-->
+                                                <span class="tx-date-group-total-amount">AED ${formatAED(dateTotals.expense)}</span>
+                                            </span>
+                                            <span class="tx-date-group-total tx-date-group-total-income">
+                                                <!--<span class="tx-date-group-total-label">Income</span>-->
+                                                <span class="tx-date-group-total-amount">AED ${formatAED(dateTotals.income)}</span>
+                                            </span>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
@@ -6664,30 +6963,42 @@
             const chart = document.getElementById(walletType === 'debit' ? 'overview-debit-spend-chart' : 'overview-spend-chart');
             if (!chart) return;
             const period = overviewPeriods[walletType];
-            const spendByDate = new Map();
+            const showIncome = walletType === 'debit';
+            const expensesByDate = new Map();
+            const incomeByDate = new Map();
             walletTransactions.forEach(transaction => {
-                if (!isSpendKind(transaction.type) || isImmediateCashbackTransaction(transaction) || !transaction.date) return;
-                spendByDate.set(transaction.date, (spendByDate.get(transaction.date) || 0) + (parseFloat(transaction.amount) || 0));
+                const date = String(transaction.date || '').slice(0, 10);
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+                const amount = parseFloat(transaction.amount) || 0;
+                const kind = txKind(transaction.type);
+                if (isSpendKind(transaction.type) && !isImmediateCashbackTransaction(transaction)) {
+                    expensesByDate.set(date, (expensesByDate.get(date) || 0) + amount);
+                } else if (showIncome && (kind === 'Repaid' || kind === 'Cashback')) {
+                    incomeByDate.set(date, (incomeByDate.get(date) || 0) + amount);
+                }
             });
             const bins = [];
-            const binTotals = [];
+            const expenseTotals = [];
+            const incomeTotals = [];
+            const monthTickDays = new Set([1, 4, 8, 12, 16, 20, 24, 26]);
             if (period === 'week') {
-                const weekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+                const rangeStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6);
                 for (let index = 0; index < 7; index++) {
-                    const date = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + index);
+                    const date = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + index);
                     const key = localDateKey(date);
                     bins.push({
-                        label: date.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 1),
+                        label: date.toLocaleDateString('en-US', { weekday: 'short' }),
                         title: date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
                         key
                     });
-                    binTotals.push(spendByDate.get(key) || 0);
+                    expenseTotals.push(expensesByDate.get(key) || 0);
+                    incomeTotals.push(incomeByDate.get(key) || 0);
                 }
             } else {
                 const year = today.getFullYear();
                 const month = today.getMonth();
                 const daysInMonth = new Date(year, month + 1, 0).getDate();
+                monthTickDays.add(daysInMonth);
                 for (let day = 1; day <= daysInMonth; day++) {
                     const date = new Date(year, month, day);
                     const key = localDateKey(date);
@@ -6696,18 +7007,21 @@
                         title: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                         key
                     });
-                    binTotals.push(spendByDate.get(key) || 0);
+                    expenseTotals.push(expensesByDate.get(key) || 0);
+                    incomeTotals.push(incomeByDate.get(key) || 0);
                 }
             }
-            const chartTotal = binTotals.reduce((sum, amount) => sum + amount, 0);
-            const chartMax = Math.max(...binTotals, 0);
-            const maxIndex = binTotals.indexOf(chartMax);
+            const expenseTotal = expenseTotals.reduce((sum, amount) => sum + amount, 0);
+            const incomeTotal = incomeTotals.reduce((sum, amount) => sum + amount, 0);
+            const expenseMax = Math.max(...expenseTotals, 0);
+            const incomeMax = Math.max(...incomeTotals, 0);
+            const chartMax = showIncome ? Math.max(expenseMax, incomeMax) : expenseMax;
             const caption = document.getElementById(walletType === 'debit' ? 'overview-debit-spend-caption' : 'overview-spend-caption');
             if (caption) {
-                const periodLabel = period === 'week' ? 'this week' : `in ${monthLabel(monthKey)}`;
+                const periodLabel = period === 'week' ? 'in the last 7 days' : `in ${monthLabel(monthKey)}`;
                 caption.textContent = walletType === 'debit'
                     ? `Your debit card transactions ${periodLabel}`
-                    : `Your credit card spending ${periodLabel}`;
+                    : `Your credit card transactions ${periodLabel}`;
             }
             document.querySelectorAll(`[data-overview-wallet="${walletType}"][data-overview-period]`).forEach(button => {
                 const isActive = button.dataset.overviewPeriod === period;
@@ -6716,19 +7030,43 @@
             });
             chart.setAttribute('role', 'img');
             chart.dataset.period = period;
-            chart.setAttribute('aria-label', `${period === 'week' ? 'Weekly' : 'Monthly'} ${walletType} spending total AED ${formatAED(chartTotal)}`);
-            chart.innerHTML = `
-                <div class="overview-chart-total"><span>Total spent</span><strong class="mono">AED ${formatAED(chartTotal)}</strong></div>
+            chart.setAttribute('aria-label', `${period === 'week' ? 'Last 7 days' : 'Monthly'} ${walletType} card transactions: expenses AED ${formatAED(expenseTotal)}${showIncome ? `, income AED ${formatAED(incomeTotal)}` : ''}`);
+            chart.classList.toggle('is-expense-only', !showIncome);
+            const expensePeakIndex = expenseMax > 0 ? expenseTotals.indexOf(expenseMax) : -1;
+            const incomePeakIndex = incomeMax > 0 ? incomeTotals.indexOf(incomeMax) : -1;
+            const barHeight = amount => chartMax > 0
+                ? Math.max(amount > 0 ? 2 : 1, (amount / chartMax) * 100)
+                : 1;
+            const graphMarkup = `
                 <div class="overview-chart-bars" style="grid-template-columns:repeat(${bins.length},minmax(0,1fr))">
                     ${bins.map((bin, index) => {
-                        const amount = binTotals[index];
-                        const height = chartMax > 0 ? Math.max(amount > 0 ? 14 : 7, (amount / chartMax) * 100) : 7;
-                        return `<div class="overview-chart-column" title="${escapeHtml(bin.title)} · AED ${formatAED(amount)}">
-                            <span class="overview-chart-bar ${index === maxIndex && chartMax > 0 ? 'peak' : ''}" style="height:${height}%"></span>
-                            <span class="overview-chart-label">${escapeHtml(bin.label)}</span>
+                        const expense = expenseTotals[index];
+                        const income = incomeTotals[index];
+                        const title = showIncome
+                            ? `${bin.title} · Expense AED ${formatAED(expense)} · Income AED ${formatAED(income)}`
+                            : `${bin.title} · Expense AED ${formatAED(expense)}`;
+                        return `<div class="overview-chart-column" title="${escapeHtml(title)}">
+                            <span class="overview-chart-bar-group">
+                                <span class="overview-chart-bar expense ${index === expensePeakIndex ? 'peak' : ''}" style="height:${barHeight(expense)}%"></span>
+                                ${showIncome ? `<span class="overview-chart-bar income ${index === incomePeakIndex ? 'peak' : ''}" style="height:${barHeight(income)}%"></span>` : ''}
+                            </span>
                         </div>`;
                     }).join('')}
+                </div>
+                <div class="overview-chart-axis" style="grid-template-columns:repeat(${bins.length},minmax(0,1fr))">
+                    ${bins.map((bin, index) => {
+                        const showDayLabel = period !== 'month' || monthTickDays.has(index + 1);
+                        const isPeakDay = expenseTotals[index] === expenseMax && expenseMax > 0
+                            || showIncome && incomeTotals[index] === incomeMax && incomeMax > 0;
+                        return `<span class="overview-chart-label${showDayLabel ? '' : ' is-spacer'}${showDayLabel && isPeakDay ? ' is-peak' : ''}">${showDayLabel ? escapeHtml(bin.label) : ''}</span>`;
+                    }).join('')}
                 </div>`;
+            const totalsMarkup = `
+                <div class="overview-chart-total">
+                    <span class="overview-chart-total-item"><i class="overview-chart-swatch expense"></i>Expense<strong class="mono">AED ${formatAED(expenseTotal)}</strong></span>
+                    ${showIncome ? `<span class="overview-chart-total-item"><i class="overview-chart-swatch income"></i>Income<strong class="mono">AED ${formatAED(incomeTotal)}</strong></span>` : ''}
+                </div>`;
+            chart.innerHTML = `${totalsMarkup}${graphMarkup}`;
         }
 
         function renderOverviewRecentList(walletType, walletTransactions) {
